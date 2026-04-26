@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Alejandra Nails - Reserva tu turno en Guáimaro</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💅 Alejandra Nails</h1>
+            <p class="ubicacion">📍 Guáimaro, Cuba</p>
+            <p class="horario">📅 Lunes a Sábado · 9:00am – 5:00pm</p>
+            <p class="contacto">📞 Para dudas o cambios: <a href="https://wa.me/5355555555?text=Hola%2C%20quiero%20reservar%20turno">+53 5555 5555</a> (WhatsApp)</p>
+        </header>
+
+        <div class="reserva-box">
+            <h2>✏️ Reserva tu turno</h2>
+            <div class="paso">
+                <label>📅 1. Elige una fecha:</label>
+                <input type="date" id="fecha" min="">
+            </div>
+
+            <div id="horariosContainer" class="horarios-container">
+                <div class="mensaje-carga">Selecciona una fecha para ver los horarios libres</div>
+            </div>
+
+            <!-- Modal para completar datos -->
+            <div id="modalReserva" class="modal hidden">
+                <div class="modal-contenido">
+                    <span class="cerrar">&times;</span>
+                    <h3>✏️ Completa tus datos</h3>
+                    <p>Turno seleccionado: <strong id="horaSeleccionada"></strong><br>
+                    Fecha: <strong id="fechaSeleccionada"></strong></p>
+                    <form id="formReserva">
+                        <input type="text" id="nombre" placeholder="Tu nombre completo" required>
+                        <input type="tel" id="telefono" placeholder="Teléfono (opcional, pero recomendado)">
+                        <select id="servicio" required>
+                            <option value="">Selecciona un servicio...</option>
+                        </select>
+                        <button type="submit" class="btn-reservar">✅ Confirmar reserva</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div id="mensajeGlobal" class="mensaje-global hidden"></div>
+        <footer>
+            <small>💖 Los turnos se actualizan en tiempo real. Si cancelas, por favor avisa con anticipación.</small>
+        </footer>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
