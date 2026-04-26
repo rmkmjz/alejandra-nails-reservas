@@ -1,6 +1,8 @@
 // =====================================================
-//  CLIENTE - Sistema de reservas para manicurista
+//  CLIENTE - Sistema de reservas para Alejandra Nails
+//  Versión con mode: 'cors' explícito
 // =====================================================
+
 // 🔁 REEMPLAZA ESTA URL CON LA DE TU APPS SCRIPT
 const API_URL = 'https://script.google.com/macros/s/AKfycbzkMAAdfcx8Y1cM6B063ybYSJqnvKiScKd1Ktns_gHEW_A6BJQWmSaKLImupjPuNIG1/exec';
 
@@ -32,7 +34,11 @@ function mostrarMensaje(texto, esError = false) {
 // Cargar lista de servicios al iniciar
 async function cargarServicios() {
     try {
-        const response = await fetch(`${API_URL}?action=getServicios`);
+        const response = await fetch(`${API_URL}?action=getServicios`, {
+            method: 'GET',
+            mode: 'cors',
+            headers: { 'Content-Type': 'application/json' }
+        });
         if (!response.ok) throw new Error('Error al cargar servicios');
         const servicios = await response.json();
         serviciosLista = servicios;
@@ -44,6 +50,7 @@ async function cargarServicios() {
             option.textContent = serv;
             servicioSelect.appendChild(option);
         });
+        console.log('Servicios cargados:', servicios);
     } catch (error) {
         console.error(error);
         mostrarMensaje('⚠️ No se pudieron cargar los servicios. Recarga la página.', true);
@@ -56,7 +63,11 @@ async function cargarHorarios(fecha) {
     horariosContainer.innerHTML = '<div class="mensaje-carga">🕒 Cargando horarios disponibles...</div>';
     try {
         const url = `${API_URL}?action=getDisponibilidad&fecha=${fecha}`;
-        const response = await fetch(url);
+        const response = await fetch(url, {
+            method: 'GET',
+            mode: 'cors',
+            headers: { 'Content-Type': 'application/json' }
+        });
         if (!response.ok) throw new Error('Error al consultar disponibilidad');
         const data = await response.json();
         const disponibles = data.disponibles || [];
@@ -135,8 +146,9 @@ async function enviarReserva(event) {
     try {
         const response = await fetch(API_URL, {
             method: 'POST',
-            body: JSON.stringify(reserva),
-            headers: { 'Content-Type': 'application/json' }
+            mode: 'cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(reserva)
         });
         const resultado = await response.json();
         if (resultado.success) {
@@ -177,7 +189,7 @@ function inicializarCalendario() {
 // Cerrar modal al hacer clic en la X o fuera del contenido
 function configurarModal() {
     const cerrarBtn = document.querySelector('.cerrar');
-    cerrarBtn.addEventListener('click', cerrarModal);
+    if (cerrarBtn) cerrarBtn.addEventListener('click', cerrarModal);
     window.addEventListener('click', (e) => {
         if (e.target === modal) cerrarModal();
     });
@@ -189,6 +201,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     configurarModal();
     formReserva.addEventListener('submit', enviarReserva);
     await cargarServicios();
-    // Opcional: si quieres mostrar un mensaje de bienvenida
     console.log('Sistema listo');
 });
