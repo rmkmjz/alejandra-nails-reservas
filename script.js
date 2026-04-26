@@ -3,14 +3,11 @@
 //  Versión JSONP (sin errores CORS)
 // =====================================================
 
-// 🔁 REEMPLAZA ESTA URL CON LA DE TU APPS SCRIPT (implementación web)
-const API_URL = 'https://script.google.com/macros/s/AKfycbyDUUpQd_HSrqbTvQsP8rBSK9W6-iVO1G2KTTTSv6mvR_paxhtrqrfyAUvDcO8smjxx/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxhXU_aVhGvCUNaA5i6PBbXnGRlr4EpYFqmnbdiklHtjYhBCO5gSeMzbdE9XEINDvwy/exec'; 
 
-// Variables globales
 let fechaSeleccionada = '';
 let horaSeleccionada = '';
 
-// Elementos DOM
 const fechaInput = document.getElementById('fecha');
 const horariosContainer = document.getElementById('horariosContainer');
 const modal = document.getElementById('modalReserva');
@@ -20,45 +17,34 @@ const formReserva = document.getElementById('formReserva');
 const servicioSelect = document.getElementById('servicio');
 const mensajeGlobal = document.getElementById('mensajeGlobal');
 
-// ------------------- Función JSONP (reemplaza fetch) -----------------
 function jsonp(url, timeout = 10000) {
   return new Promise((resolve, reject) => {
     const callbackName = `jsonp_callback_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
     const script = document.createElement('script');
     let timer;
-
-    // Limpiar recursos
     function cleanup() {
       if (script.parentNode) script.parentNode.removeChild(script);
       delete window[callbackName];
       if (timer) clearTimeout(timer);
     }
-
-    // Timeout
     timer = setTimeout(() => {
       cleanup();
       reject(new Error('La petición JSONP ha expirado'));
     }, timeout);
-
-    // Definir función global callback
     window[callbackName] = (data) => {
       cleanup();
       resolve(data);
     };
-
-    // Construir URL con el callback
     const separator = url.includes('?') ? '&' : '?';
-    script.src = `${url}${separator}callback=${callbackName}`;
+    script.src = `${url}${separator}callback=${callbackName}&_=${Date.now()}`;
     script.onerror = () => {
       cleanup();
       reject(new Error('Error al cargar el script JSONP'));
     };
-
     document.body.appendChild(script);
   });
 }
 
-// ------------------- Mostrar mensajes -----------------
 function mostrarMensaje(texto, esError = false) {
     mensajeGlobal.textContent = texto;
     mensajeGlobal.classList.remove('hidden', 'error');
@@ -68,7 +54,6 @@ function mostrarMensaje(texto, esError = false) {
     }, 4000);
 }
 
-// ------------------- Cargar servicios (JSONP) -----------------
 async function cargarServicios() {
     try {
         const servicios = await jsonp(`${API_URL}?action=getServicios`);
@@ -85,7 +70,6 @@ async function cargarServicios() {
     }
 }
 
-// ------------------- Cargar horarios disponibles (JSONP) -----------------
 async function cargarHorarios(fecha) {
     if (!fecha) return;
     horariosContainer.innerHTML = '<div class="mensaje-carga">🕒 Cargando horarios disponibles...</div>';
@@ -93,12 +77,10 @@ async function cargarHorarios(fecha) {
         const url = `${API_URL}?action=getDisponibilidad&fecha=${fecha}`;
         const data = await jsonp(url);
         const disponibles = data.disponibles || [];
-        
         if (disponibles.length === 0) {
             horariosContainer.innerHTML = '<div class="mensaje-carga">😴 No hay horarios libres para este día. Elige otra fecha.</div>';
             return;
         }
-        
         const grid = document.createElement('div');
         grid.className = 'horarios-grid';
         disponibles.forEach(hora => {
@@ -117,7 +99,6 @@ async function cargarHorarios(fecha) {
     }
 }
 
-// ------------------- Abrir modal -----------------
 function abrirModal(fecha, hora) {
     fechaSeleccionada = fecha;
     horaSeleccionada = hora;
@@ -126,20 +107,17 @@ function abrirModal(fecha, hora) {
     modal.classList.remove('hidden');
 }
 
-// ------------------- Cerrar modal -----------------
 function cerrarModal() {
     modal.classList.add('hidden');
     formReserva.reset();
     servicioSelect.value = '';
 }
 
-// ------------------- Enviar reserva (JSONP) -----------------
 async function enviarReserva(event) {
     event.preventDefault();
     const nombre = document.getElementById('nombre').value.trim();
     const telefono = document.getElementById('telefono').value.trim();
     const servicio = servicioSelect.value;
-    
     if (!nombre) {
         mostrarMensaje('❌ Por favor ingresa tu nombre', true);
         return;
@@ -148,12 +126,10 @@ async function enviarReserva(event) {
         mostrarMensaje('❌ Selecciona un servicio', true);
         return;
     }
-    
     const boton = formReserva.querySelector('button');
     const textoOriginal = boton.textContent;
     boton.textContent = '⏳ Enviando...';
     boton.disabled = true;
-    
     try {
         const params = new URLSearchParams({
             action: 'reservar',
@@ -165,7 +141,6 @@ async function enviarReserva(event) {
         });
         const url = `${API_URL}?${params.toString()}`;
         const resultado = await jsonp(url);
-        
         if (resultado.success) {
             mostrarMensaje('✅ ¡Reserva confirmada! Te esperamos.');
             cerrarModal();
@@ -182,14 +157,12 @@ async function enviarReserva(event) {
     }
 }
 
-// ------------------- Configurar calendario -----------------
 function inicializarCalendario() {
     const hoy = new Date();
     const yyyy = hoy.getFullYear();
     const mm = String(hoy.getMonth() + 1).padStart(2, '0');
     const dd = String(hoy.getDate()).padStart(2, '0');
     fechaInput.min = `${yyyy}-${mm}-${dd}`;
-    
     fechaInput.addEventListener('change', (e) => {
         const fecha = e.target.value;
         if (fecha) {
@@ -200,7 +173,6 @@ function inicializarCalendario() {
     });
 }
 
-// ------------------- Cerrar modal al hacer clic fuera -----------------
 function configurarModal() {
     const cerrarBtn = document.querySelector('.cerrar');
     if (cerrarBtn) cerrarBtn.addEventListener('click', cerrarModal);
@@ -209,7 +181,6 @@ function configurarModal() {
     });
 }
 
-// ------------------- Inicialización -----------------
 document.addEventListener('DOMContentLoaded', async () => {
     inicializarCalendario();
     configurarModal();
