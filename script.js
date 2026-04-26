@@ -1,17 +1,13 @@
 // =====================================================
 //  CLIENTE - Sistema de reservas para Alejandra Nails
-//  Versión con mode: 'cors' explícito
+//  Sin mode: 'cors' ni headers para evitar preflight
 // =====================================================
 
-// 🔁 REEMPLAZA ESTA URL CON LA DE TU APPS SCRIPT
 const API_URL = 'https://script.google.com/macros/s/AKfycbyDUUpQd_HSrqbTvQsP8rBSK9W6-iVO1G2KTTTSv6mvR_paxhtrqrfyAUvDcO8smjxx/exec';
 
-// Variables globales
 let fechaSeleccionada = '';
 let horaSeleccionada = '';
-let serviciosLista = [];
 
-// Elementos DOM
 const fechaInput = document.getElementById('fecha');
 const horariosContainer = document.getElementById('horariosContainer');
 const modal = document.getElementById('modalReserva');
@@ -21,7 +17,6 @@ const formReserva = document.getElementById('formReserva');
 const servicioSelect = document.getElementById('servicio');
 const mensajeGlobal = document.getElementById('mensajeGlobal');
 
-// Mostrar mensaje temporal (éxito o error)
 function mostrarMensaje(texto, esError = false) {
     mensajeGlobal.textContent = texto;
     mensajeGlobal.classList.remove('hidden', 'error');
@@ -31,18 +26,12 @@ function mostrarMensaje(texto, esError = false) {
     }, 4000);
 }
 
-// Cargar lista de servicios al iniciar
+// Cargar servicios (GET sin headers)
 async function cargarServicios() {
     try {
-        const response = await fetch(`${API_URL}?action=getServicios`, {
-            method: 'GET',
-            mode: 'cors',
-            headers: { 'Content-Type': 'application/json' }
-        });
+        const response = await fetch(`${API_URL}?action=getServicios`);
         if (!response.ok) throw new Error('Error al cargar servicios');
         const servicios = await response.json();
-        serviciosLista = servicios;
-        // Llenar select del modal
         servicioSelect.innerHTML = '<option value="">Selecciona un servicio...</option>';
         servicios.forEach(serv => {
             const option = document.createElement('option');
@@ -50,24 +39,19 @@ async function cargarServicios() {
             option.textContent = serv;
             servicioSelect.appendChild(option);
         });
-        console.log('Servicios cargados:', servicios);
     } catch (error) {
         console.error(error);
         mostrarMensaje('⚠️ No se pudieron cargar los servicios. Recarga la página.', true);
     }
 }
 
-// Obtener horarios disponibles para una fecha
+// Cargar horarios (GET sin headers)
 async function cargarHorarios(fecha) {
     if (!fecha) return;
     horariosContainer.innerHTML = '<div class="mensaje-carga">🕒 Cargando horarios disponibles...</div>';
     try {
         const url = `${API_URL}?action=getDisponibilidad&fecha=${fecha}`;
-        const response = await fetch(url, {
-            method: 'GET',
-            mode: 'cors',
-            headers: { 'Content-Type': 'application/json' }
-        });
+        const response = await fetch(url);
         if (!response.ok) throw new Error('Error al consultar disponibilidad');
         const data = await response.json();
         const disponibles = data.disponibles || [];
@@ -77,7 +61,6 @@ async function cargarHorarios(fecha) {
             return;
         }
         
-        // Mostrar botones de horarios
         const grid = document.createElement('div');
         grid.className = 'horarios-grid';
         disponibles.forEach(hora => {
@@ -96,7 +79,6 @@ async function cargarHorarios(fecha) {
     }
 }
 
-// Abrir modal para confirmar reserva
 function abrirModal(fecha, hora) {
     fechaSeleccionada = fecha;
     horaSeleccionada = hora;
@@ -105,14 +87,13 @@ function abrirModal(fecha, hora) {
     modal.classList.remove('hidden');
 }
 
-// Cerrar modal
 function cerrarModal() {
     modal.classList.add('hidden');
     formReserva.reset();
     servicioSelect.value = '';
 }
 
-// Enviar reserva al backend
+// Enviar reserva mediante GET (para evitar preflight CORS)
 async function enviarReserva(event) {
     event.preventDefault();
     const nombre = document.getElementById('nombre').value.trim();
@@ -128,33 +109,28 @@ async function enviarReserva(event) {
         return;
     }
     
-    const reserva = {
-        action: 'reservar',
-        fecha: fechaSeleccionada,
-        hora: horaSeleccionada,
-        nombre: nombre,
-        telefono: telefono || '(no especificado)',
-        servicio: servicio
-    };
-    
-    // Mostrar mensaje de "enviando"
     const boton = formReserva.querySelector('button');
     const textoOriginal = boton.textContent;
     boton.textContent = '⏳ Enviando...';
     boton.disabled = true;
     
     try {
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            mode: 'cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(reserva)
+        // Construir URL con todos los parámetros
+        const params = new URLSearchParams({
+            action: 'reservar',
+            fecha: fechaSeleccionada,
+            hora: horaSeleccionada,
+            nombre: nombre,
+            telefono: telefono || '(no especificado)',
+            servicio: servicio
         });
+        const url = `${API_URL}?${params.toString()}`;
+        const response = await fetch(url);
         const resultado = await response.json();
+        
         if (resultado.success) {
             mostrarMensaje('✅ ¡Reserva confirmada! Te esperamos.');
             cerrarModal();
-            // Recargar horarios de la misma fecha para actualizar la disponibilidad
             await cargarHorarios(fechaSeleccionada);
         } else {
             mostrarMensaje(`❌ No se pudo reservar: ${resultado.error}`, true);
@@ -168,7 +144,6 @@ async function enviarReserva(event) {
     }
 }
 
-// Configurar fecha mínima (hoy) y evento de cambio
 function inicializarCalendario() {
     const hoy = new Date();
     const yyyy = hoy.getFullYear();
@@ -186,7 +161,6 @@ function inicializarCalendario() {
     });
 }
 
-// Cerrar modal al hacer clic en la X o fuera del contenido
 function configurarModal() {
     const cerrarBtn = document.querySelector('.cerrar');
     if (cerrarBtn) cerrarBtn.addEventListener('click', cerrarModal);
@@ -195,11 +169,10 @@ function configurarModal() {
     });
 }
 
-// Inicializar
 document.addEventListener('DOMContentLoaded', async () => {
     inicializarCalendario();
     configurarModal();
     formReserva.addEventListener('submit', enviarReserva);
     await cargarServicios();
-    console.log('Sistema listo');
+    console.log('Sistema listo (sin CORS conflictivo)');
 });
