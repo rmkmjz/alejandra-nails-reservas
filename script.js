@@ -1,13 +1,16 @@
 // =====================================================
 //  CLIENTE - Sistema de reservas para Alejandra Nails
-//  Sin mode: 'cors' ni headers para evitar preflight
+//  Versión JSONP (sin errores CORS)
 // =====================================================
 
+// 🔁 REEMPLAZA ESTA URL CON LA DE TU APPS SCRIPT (implementación web)
 const API_URL = 'https://script.google.com/macros/s/AKfycbyDUUpQd_HSrqbTvQsP8rBSK9W6-iVO1G2KTTTSv6mvR_paxhtrqrfyAUvDcO8smjxx/exec';
 
+// Variables globales
 let fechaSeleccionada = '';
 let horaSeleccionada = '';
 
+// Elementos DOM
 const fechaInput = document.getElementById('fecha');
 const horariosContainer = document.getElementById('horariosContainer');
 const modal = document.getElementById('modalReserva');
@@ -17,6 +20,45 @@ const formReserva = document.getElementById('formReserva');
 const servicioSelect = document.getElementById('servicio');
 const mensajeGlobal = document.getElementById('mensajeGlobal');
 
+// ------------------- Función JSONP (reemplaza fetch) -----------------
+function jsonp(url, timeout = 10000) {
+  return new Promise((resolve, reject) => {
+    const callbackName = `jsonp_callback_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+    const script = document.createElement('script');
+    let timer;
+
+    // Limpiar recursos
+    function cleanup() {
+      if (script.parentNode) script.parentNode.removeChild(script);
+      delete window[callbackName];
+      if (timer) clearTimeout(timer);
+    }
+
+    // Timeout
+    timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('La petición JSONP ha expirado'));
+    }, timeout);
+
+    // Definir función global callback
+    window[callbackName] = (data) => {
+      cleanup();
+      resolve(data);
+    };
+
+    // Construir URL con el callback
+    const separator = url.includes('?') ? '&' : '?';
+    script.src = `${url}${separator}callback=${callbackName}`;
+    script.onerror = () => {
+      cleanup();
+      reject(new Error('Error al cargar el script JSONP'));
+    };
+
+    document.body.appendChild(script);
+  });
+}
+
+// ------------------- Mostrar mensajes -----------------
 function mostrarMensaje(texto, esError = false) {
     mensajeGlobal.textContent = texto;
     mensajeGlobal.classList.remove('hidden', 'error');
@@ -26,12 +68,10 @@ function mostrarMensaje(texto, esError = false) {
     }, 4000);
 }
 
-// Cargar servicios (GET sin headers)
+// ------------------- Cargar servicios (JSONP) -----------------
 async function cargarServicios() {
     try {
-        const response = await fetch(`${API_URL}?action=getServicios`);
-        if (!response.ok) throw new Error('Error al cargar servicios');
-        const servicios = await response.json();
+        const servicios = await jsonp(`${API_URL}?action=getServicios`);
         servicioSelect.innerHTML = '<option value="">Selecciona un servicio...</option>';
         servicios.forEach(serv => {
             const option = document.createElement('option');
@@ -45,15 +85,13 @@ async function cargarServicios() {
     }
 }
 
-// Cargar horarios (GET sin headers)
+// ------------------- Cargar horarios disponibles (JSONP) -----------------
 async function cargarHorarios(fecha) {
     if (!fecha) return;
     horariosContainer.innerHTML = '<div class="mensaje-carga">🕒 Cargando horarios disponibles...</div>';
     try {
         const url = `${API_URL}?action=getDisponibilidad&fecha=${fecha}`;
-        const response = await fetch(url);
-        if (!response.ok) throw new Error('Error al consultar disponibilidad');
-        const data = await response.json();
+        const data = await jsonp(url);
         const disponibles = data.disponibles || [];
         
         if (disponibles.length === 0) {
@@ -79,6 +117,7 @@ async function cargarHorarios(fecha) {
     }
 }
 
+// ------------------- Abrir modal -----------------
 function abrirModal(fecha, hora) {
     fechaSeleccionada = fecha;
     horaSeleccionada = hora;
@@ -87,13 +126,14 @@ function abrirModal(fecha, hora) {
     modal.classList.remove('hidden');
 }
 
+// ------------------- Cerrar modal -----------------
 function cerrarModal() {
     modal.classList.add('hidden');
     formReserva.reset();
     servicioSelect.value = '';
 }
 
-// Enviar reserva mediante GET (para evitar preflight CORS)
+// ------------------- Enviar reserva (JSONP) -----------------
 async function enviarReserva(event) {
     event.preventDefault();
     const nombre = document.getElementById('nombre').value.trim();
@@ -115,7 +155,6 @@ async function enviarReserva(event) {
     boton.disabled = true;
     
     try {
-        // Construir URL con todos los parámetros
         const params = new URLSearchParams({
             action: 'reservar',
             fecha: fechaSeleccionada,
@@ -125,8 +164,7 @@ async function enviarReserva(event) {
             servicio: servicio
         });
         const url = `${API_URL}?${params.toString()}`;
-        const response = await fetch(url);
-        const resultado = await response.json();
+        const resultado = await jsonp(url);
         
         if (resultado.success) {
             mostrarMensaje('✅ ¡Reserva confirmada! Te esperamos.');
@@ -144,6 +182,7 @@ async function enviarReserva(event) {
     }
 }
 
+// ------------------- Configurar calendario -----------------
 function inicializarCalendario() {
     const hoy = new Date();
     const yyyy = hoy.getFullYear();
@@ -161,6 +200,7 @@ function inicializarCalendario() {
     });
 }
 
+// ------------------- Cerrar modal al hacer clic fuera -----------------
 function configurarModal() {
     const cerrarBtn = document.querySelector('.cerrar');
     if (cerrarBtn) cerrarBtn.addEventListener('click', cerrarModal);
@@ -169,10 +209,11 @@ function configurarModal() {
     });
 }
 
+// ------------------- Inicialización -----------------
 document.addEventListener('DOMContentLoaded', async () => {
     inicializarCalendario();
     configurarModal();
     formReserva.addEventListener('submit', enviarReserva);
     await cargarServicios();
-    console.log('Sistema listo (sin CORS conflictivo)');
+    console.log('Sistema listo (JSONP activo, sin errores CORS)');
 });
