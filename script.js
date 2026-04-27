@@ -1,9 +1,9 @@
-// 🔁 REEMPLAZA con tu URL real de Google Apps Script
+// ⚠️ REEMPLAZA con la URL de tu Web App de Google Apps Script
 const API_URL = 'https://script.google.com/macros/s/AKfycbxkQ6flk6W8LT7tEH_JTk9UwSAlOOOt9ezqydLYYSrV4pPM0slluqSybmDYFOvF7BGq/exec';
 
 let turnosActuales = [];
 
-// Elementos DOM
+// DOM elements
 const fechaInput = document.getElementById('fecha');
 const turnosContainer = document.getElementById('turnos-container');
 const loadingDiv = document.getElementById('loading');
@@ -18,21 +18,42 @@ const modalMensaje = document.getElementById('modal-mensaje');
 let horaSeleccionada = null;
 let fechaSeleccionada = null;
 
-// ---- Helper fetch ----
-async function peticion(url, opciones = {}) {
-  const res = await fetch(url, opciones);
-  const data = await res.json();
-  if (!res.ok || data.error) throw new Error(data.error || 'Error de conexión');
+// --- GET: Obtener turnos de una fecha ---
+async function obtenerTurnos(fecha) {
+  const url = `${API_URL}?fecha=${encodeURIComponent(fecha)}`;
+  const resp = await fetch(url);
+  const data = await resp.json();
+  if (data.error) throw new Error(data.error);
   return data;
 }
 
-// ---- Cargar turnos de una fecha ----
+// --- POST: Reservar usando application/x-www-form-urlencoded (sin preflight CORS) ---
+async function reservarTurno(fecha, hora, nombre, telefono) {
+  const formData = new URLSearchParams();
+  formData.append('fecha', fecha);
+  formData.append('hora', hora);
+  formData.append('nombre', nombre);
+  formData.append('telefono', telefono);
+
+  const resp = await fetch(API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: formData.toString()
+  });
+  const data = await resp.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+// --- Cargar y mostrar turnos ---
 async function cargarTurnos(fecha) {
   turnosContainer.innerHTML = '';
   loadingDiv.classList.remove('oculto');
   
   try {
-    const turnos = await peticion(`${API_URL}?fecha=${fecha}`);
+    const turnos = await obtenerTurnos(fecha);
     turnosActuales = turnos;
     renderizarTurnos(turnos);
   } catch (err) {
@@ -42,10 +63,9 @@ async function cargarTurnos(fecha) {
   }
 }
 
-// ---- Mostrar turnos en pantalla ----
 function renderizarTurnos(turnos) {
   if (turnos.length === 0) {
-    turnosContainer.innerHTML = '<div class="aviso">📭 No hay turnos programados para esta fecha.</div>';
+    turnosContainer.innerHTML = '<div class="aviso">📭 No hay turnos para esta fecha.</div>';
     return;
   }
   
@@ -64,7 +84,6 @@ function renderizarTurnos(turnos) {
   });
 }
 
-// ---- Abrir modal para reservar ----
 function abrirModal(hora) {
   horaSeleccionada = hora;
   fechaSeleccionada = fechaInput.value;
@@ -75,7 +94,6 @@ function abrirModal(hora) {
   modal.classList.remove('oculto');
 }
 
-// ---- Confirmar reserva ----
 async function confirmarReserva() {
   const nombre = nombreInput.value.trim();
   const telefono = telefonoInput.value.trim();
@@ -88,22 +106,12 @@ async function confirmarReserva() {
   confirmarBtn.disabled = true;
   
   try {
-    const respuesta = await peticion(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        fecha: fechaSeleccionada,
-        hora: horaSeleccionada,
-        nombre: nombre,
-        telefono: telefono
-      })
-    });
-    
+    const respuesta = await reservarTurno(fechaSeleccionada, horaSeleccionada, nombre, telefono);
     if (respuesta.success) {
       modalMensaje.innerHTML = '✅ ¡Turno reservado con éxito!';
       setTimeout(() => {
         modal.classList.add('oculto');
-        cargarTurnos(fechaSeleccionada);  // recargar la vista
+        cargarTurnos(fechaSeleccionada);
       }, 1500);
     } else {
       modalMensaje.innerHTML = `❌ ${respuesta.error || 'Error inesperado'}`;
@@ -115,21 +123,17 @@ async function confirmarReserva() {
   }
 }
 
-// ---- Eventos ----
+// --- Event listeners ---
 fechaInput.addEventListener('change', (e) => {
-  const fecha = e.target.value;
-  if (fecha) cargarTurnos(fecha);
+  if (e.target.value) cargarTurnos(e.target.value);
 });
-
-closeModal.addEventListener('click', () => {
-  modal.classList.add('oculto');
-});
+closeModal.addEventListener('click', () => modal.classList.add('oculto'));
 window.addEventListener('click', (e) => {
   if (e.target === modal) modal.classList.add('oculto');
 });
 confirmarBtn.addEventListener('click', confirmarReserva);
 
-// ---- Al cargar la página, poner la fecha de hoy si es válida ----
+// Inicializar con la fecha de hoy
 const hoy = new Date().toISOString().slice(0,10);
 fechaInput.value = hoy;
 cargarTurnos(hoy);
