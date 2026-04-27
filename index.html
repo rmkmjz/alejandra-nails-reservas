@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Turnos Manicurista - Guáimaro</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>📅 Reserva tu turno</h1>
+    <p>Selecciona una fecha y elige el horario disponible</p>
+    
+    <div class="selector-fecha">
+      <label for="fecha">Fecha: </label>
+      <input type="date" id="fecha" required>
+    </div>
+    
+    <div id="loading" class="loading oculto">Cargando turnos...</div>
+    <div id="turnos-container" class="turnos-grid"></div>
+  </div>
+
+  <!-- Modal para reservar -->
+  <div id="modal" class="modal oculto">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h3>Reservar turno</h3>
+      <p>Horario: <strong id="modal-hora"></strong></p>
+      <input type="text" id="cliente-nombre" placeholder="Tu nombre completo" required>
+      <input type="tel" id="cliente-telefono" placeholder="Teléfono (ej: 5XXXXXXXX)" required>
+      <button id="confirmar-reserva">Confirmar reserva</button>
+      <div id="modal-mensaje" class="mensaje"></div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
