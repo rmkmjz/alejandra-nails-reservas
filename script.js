@@ -1,216 +1,135 @@
-// =====================================================
-//  CLIENTE - Sistema de reservas para Alejandra Nails
-//  Versión JSONP (sin errores CORS)
-// =====================================================
+// 🔁 REEMPLAZA con tu URL real de Google Apps Script
+const API_URL = 'https://script.google.com/macros/s/TU_ID_AQUI/exec';
 
-// 🔁 REEMPLAZA ESTA URL CON LA DE TU APPS SCRIPT (la que te dio al desplegar)
-const API_URL = 'https://script.google.com/macros/s/AKfycbwdCQsbo8fVV7ZvMl2C0qhL1sP6YAoAhIYDvkYh_ymUQzraHebOAn5gCBWTYQ8821YC/exec';
-
-// Variables globales
-let fechaSeleccionada = '';
-let horaSeleccionada = '';
+let turnosActuales = [];
 
 // Elementos DOM
 const fechaInput = document.getElementById('fecha');
-const horariosContainer = document.getElementById('horariosContainer');
-const modal = document.getElementById('modalReserva');
-const horaSpan = document.getElementById('horaSeleccionada');
-const fechaSpan = document.getElementById('fechaSeleccionada');
-const formReserva = document.getElementById('formReserva');
-const servicioSelect = document.getElementById('servicio');
-const mensajeGlobal = document.getElementById('mensajeGlobal');
+const turnosContainer = document.getElementById('turnos-container');
+const loadingDiv = document.getElementById('loading');
+const modal = document.getElementById('modal');
+const closeModal = document.querySelector('.close');
+const modalHoraSpan = document.getElementById('modal-hora');
+const confirmarBtn = document.getElementById('confirmar-reserva');
+const nombreInput = document.getElementById('cliente-nombre');
+const telefonoInput = document.getElementById('cliente-telefono');
+const modalMensaje = document.getElementById('modal-mensaje');
 
-// ------------------- Función JSONP -----------------
-function jsonp(url, timeout = 10000) {
-  return new Promise((resolve, reject) => {
-    const callbackName = `jsonp_callback_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
-    const script = document.createElement('script');
-    let timer;
+let horaSeleccionada = null;
+let fechaSeleccionada = null;
 
-    function cleanup() {
-      if (script.parentNode) script.parentNode.removeChild(script);
-      delete window[callbackName];
-      if (timer) clearTimeout(timer);
+// ---- Helper fetch ----
+async function peticion(url, opciones = {}) {
+  const res = await fetch(url, opciones);
+  const data = await res.json();
+  if (!res.ok || data.error) throw new Error(data.error || 'Error de conexión');
+  return data;
+}
+
+// ---- Cargar turnos de una fecha ----
+async function cargarTurnos(fecha) {
+  turnosContainer.innerHTML = '';
+  loadingDiv.classList.remove('oculto');
+  
+  try {
+    const turnos = await peticion(`${API_URL}?fecha=${fecha}`);
+    turnosActuales = turnos;
+    renderizarTurnos(turnos);
+  } catch (err) {
+    turnosContainer.innerHTML = `<div class="error">❌ ${err.message}</div>`;
+  } finally {
+    loadingDiv.classList.add('oculto');
+  }
+}
+
+// ---- Mostrar turnos en pantalla ----
+function renderizarTurnos(turnos) {
+  if (turnos.length === 0) {
+    turnosContainer.innerHTML = '<div class="aviso">📭 No hay turnos programados para esta fecha.</div>';
+    return;
+  }
+  
+  turnosContainer.innerHTML = '';
+  turnos.forEach(turno => {
+    const card = document.createElement('div');
+    card.className = `turno-card ${turno.estado}`;
+    card.innerHTML = `
+      <div class="hora">${turno.hora}</div>
+      <div class="estado">${turno.estado === 'disponible' ? '✅ Libre' : '❌ Ocupado'}</div>
+    `;
+    if (turno.estado === 'disponible') {
+      card.addEventListener('click', () => abrirModal(turno.hora));
     }
-
-    timer = setTimeout(() => {
-      cleanup();
-      reject(new Error('La petición JSONP ha expirado'));
-    }, timeout);
-
-    window[callbackName] = (data) => {
-      cleanup();
-      resolve(data);
-    };
-
-    const separator = url.includes('?') ? '&' : '?';
-    script.src = `${url}${separator}callback=${callbackName}&_=${Date.now()}`;
-    script.onerror = () => {
-      cleanup();
-      reject(new Error('Error al cargar el script JSONP'));
-    };
-
-    document.body.appendChild(script);
+    turnosContainer.appendChild(card);
   });
 }
 
-// ------------------- Mostrar mensajes -----------------
-function mostrarMensaje(texto, esError = false) {
-    mensajeGlobal.textContent = texto;
-    mensajeGlobal.classList.remove('hidden', 'error');
-    if (esError) mensajeGlobal.classList.add('error');
-    setTimeout(() => {
-        mensajeGlobal.classList.add('hidden');
-    }, 4000);
+// ---- Abrir modal para reservar ----
+function abrirModal(hora) {
+  horaSeleccionada = hora;
+  fechaSeleccionada = fechaInput.value;
+  modalHoraSpan.innerText = hora;
+  nombreInput.value = '';
+  telefonoInput.value = '';
+  modalMensaje.innerHTML = '';
+  modal.classList.remove('oculto');
 }
 
-// ------------------- Cargar servicios -----------------
-async function cargarServicios() {
-    try {
-        const servicios = await jsonp(`${API_URL}?action=getServicios`);
-        servicioSelect.innerHTML = '<option value="">Selecciona un servicio...</option>';
-        servicios.forEach(serv => {
-            const option = document.createElement('option');
-            option.value = serv;
-            option.textContent = serv;
-            servicioSelect.appendChild(option);
-        });
-        console.log('Servicios cargados correctamente');
-    } catch (error) {
-        console.error('Error cargando servicios:', error);
-        mostrarMensaje('⚠️ No se pudieron cargar los servicios. Recarga la página.', true);
-    }
-}
-
-// ------------------- Cargar horarios -----------------
-async function cargarHorarios(fecha) {
-    if (!fecha) return;
-    horariosContainer.innerHTML = '<div class="mensaje-carga">🕒 Cargando horarios disponibles...</div>';
-    try {
-        const url = `${API_URL}?action=getDisponibilidad&fecha=${fecha}`;
-        const data = await jsonp(url);
-        const disponibles = data.disponibles || [];
-        
-        if (disponibles.length === 0) {
-            horariosContainer.innerHTML = '<div class="mensaje-carga">😴 No hay horarios libres para este día. Elige otra fecha.</div>';
-            return;
-        }
-        
-        const grid = document.createElement('div');
-        grid.className = 'horarios-grid';
-        disponibles.forEach(hora => {
-            const btn = document.createElement('button');
-            btn.textContent = hora;
-            btn.classList.add('horario-btn');
-            btn.addEventListener('click', () => abrirModal(fecha, hora));
-            grid.appendChild(btn);
-        });
-        horariosContainer.innerHTML = '';
-        horariosContainer.appendChild(grid);
-    } catch (error) {
-        console.error(error);
-        horariosContainer.innerHTML = '<div class="mensaje-carga" style="color:red;">❌ Error de conexión. Intenta de nuevo.</div>';
-        mostrarMensaje('Error al cargar horarios', true);
-    }
-}
-
-// ------------------- Abrir modal -----------------
-function abrirModal(fecha, hora) {
-    fechaSeleccionada = fecha;
-    horaSeleccionada = hora;
-    fechaSpan.textContent = fecha;
-    horaSpan.textContent = hora;
-    modal.classList.remove('hidden');
-}
-
-// ------------------- Cerrar modal -----------------
-function cerrarModal() {
-    modal.classList.add('hidden');
-    formReserva.reset();
-    servicioSelect.value = '';
-}
-
-// ------------------- Enviar reserva -----------------
-async function enviarReserva(event) {
-    event.preventDefault();
-    const nombre = document.getElementById('nombre').value.trim();
-    const telefono = document.getElementById('telefono').value.trim();
-    const servicio = servicioSelect.value;
-    
-    if (!nombre) {
-        mostrarMensaje('❌ Por favor ingresa tu nombre', true);
-        return;
-    }
-    if (!servicio) {
-        mostrarMensaje('❌ Selecciona un servicio', true);
-        return;
-    }
-    
-    const boton = formReserva.querySelector('button');
-    const textoOriginal = boton.textContent;
-    boton.textContent = '⏳ Enviando...';
-    boton.disabled = true;
-    
-    try {
-        const params = new URLSearchParams({
-            action: 'reservar',
-            fecha: fechaSeleccionada,
-            hora: horaSeleccionada,
-            nombre: nombre,
-            telefono: telefono || '(no especificado)',
-            servicio: servicio
-        });
-        const url = `${API_URL}?${params.toString()}`;
-        const resultado = await jsonp(url);
-        
-        if (resultado.success) {
-            mostrarMensaje('✅ ¡Reserva confirmada! Te esperamos.');
-            cerrarModal();
-            await cargarHorarios(fechaSeleccionada);
-        } else {
-            mostrarMensaje(`❌ No se pudo reservar: ${resultado.error}`, true);
-        }
-    } catch (error) {
-        console.error(error);
-        mostrarMensaje('❌ Error de red. Intenta de nuevo más tarde.', true);
-    } finally {
-        boton.textContent = textoOriginal;
-        boton.disabled = false;
-    }
-}
-
-// ------------------- Configurar calendario -----------------
-function inicializarCalendario() {
-    const hoy = new Date();
-    const yyyy = hoy.getFullYear();
-    const mm = String(hoy.getMonth() + 1).padStart(2, '0');
-    const dd = String(hoy.getDate()).padStart(2, '0');
-    fechaInput.min = `${yyyy}-${mm}-${dd}`;
-    
-    fechaInput.addEventListener('change', (e) => {
-        const fecha = e.target.value;
-        if (fecha) {
-            cargarHorarios(fecha);
-        } else {
-            horariosContainer.innerHTML = '<div class="mensaje-carga">📅 Selecciona una fecha para ver horarios</div>';
-        }
+// ---- Confirmar reserva ----
+async function confirmarReserva() {
+  const nombre = nombreInput.value.trim();
+  const telefono = telefonoInput.value.trim();
+  if (!nombre || !telefono) {
+    modalMensaje.innerHTML = '⚠️ Completa nombre y teléfono';
+    return;
+  }
+  
+  modalMensaje.innerHTML = '📡 Reservando...';
+  confirmarBtn.disabled = true;
+  
+  try {
+    const respuesta = await peticion(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fecha: fechaSeleccionada,
+        hora: horaSeleccionada,
+        nombre: nombre,
+        telefono: telefono
+      })
     });
+    
+    if (respuesta.success) {
+      modalMensaje.innerHTML = '✅ ¡Turno reservado con éxito!';
+      setTimeout(() => {
+        modal.classList.add('oculto');
+        cargarTurnos(fechaSeleccionada);  // recargar la vista
+      }, 1500);
+    } else {
+      modalMensaje.innerHTML = `❌ ${respuesta.error || 'Error inesperado'}`;
+    }
+  } catch (err) {
+    modalMensaje.innerHTML = `❌ ${err.message}`;
+  } finally {
+    confirmarBtn.disabled = false;
+  }
 }
 
-// ------------------- Cerrar modal al hacer clic fuera -----------------
-function configurarModal() {
-    const cerrarBtn = document.querySelector('.cerrar');
-    if (cerrarBtn) cerrarBtn.addEventListener('click', cerrarModal);
-    window.addEventListener('click', (e) => {
-        if (e.target === modal) cerrarModal();
-    });
-}
-
-// ------------------- Inicialización -----------------
-document.addEventListener('DOMContentLoaded', async () => {
-    inicializarCalendario();
-    configurarModal();
-    formReserva.addEventListener('submit', enviarReserva);
-    await cargarServicios();
-    console.log('Sistema listo (JSONP activo, sin errores CORS)');
+// ---- Eventos ----
+fechaInput.addEventListener('change', (e) => {
+  const fecha = e.target.value;
+  if (fecha) cargarTurnos(fecha);
 });
+
+closeModal.addEventListener('click', () => {
+  modal.classList.add('oculto');
+});
+window.addEventListener('click', (e) => {
+  if (e.target === modal) modal.classList.add('oculto');
+});
+confirmarBtn.addEventListener('click', confirmarReserva);
+
+// ---- Al cargar la página, poner la fecha de hoy si es válida ----
+const hoy = new Date().toISOString().slice(0,10);
+fechaInput.value = hoy;
+cargarTurnos(hoy);
