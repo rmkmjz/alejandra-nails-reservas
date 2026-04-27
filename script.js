@@ -4,7 +4,7 @@
 // =====================================================
 
 // 🔁 REEMPLAZA ESTA URL CON LA DE TU APPS SCRIPT (la que te dio al desplegar)
-const API_URL = 'https://script.google.com/macros/s/AKfycbyZR6jdOMZjF1WsMinuwd5dWQjF2Nz0kWwgTFnnMR71J7IuSm1OxJstr6wtYmbXJ6Y/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwdCQsbo8fVV7ZvMl2C0qhL1sP6YAoAhIYDvkYh_ymUQzraHebOAn5gCBWTYQ8821YC/exec';
 
 // Variables globales
 let fechaSeleccionada = '';
