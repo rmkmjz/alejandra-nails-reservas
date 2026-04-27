@@ -1,5 +1,5 @@
 // 🔁 REEMPLAZA con tu URL real de Google Apps Script
-const API_URL = 'https://script.google.com/macros/s/TU_ID_AQUI/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxkQ6flk6W8LT7tEH_JTk9UwSAlOOOt9ezqydLYYSrV4pPM0slluqSybmDYFOvF7BGq/exec';
 
 let turnosActuales = [];
 
